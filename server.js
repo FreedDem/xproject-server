@@ -1,6 +1,6 @@
 // server/server.js
 
-// Загружаем .env ДО любых других импортов
+// 1) .env должен грузиться до всего
 import 'dotenv/config'
 
 import express from 'express'
@@ -20,8 +20,14 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 
-// ✅ Для Amvera слушаем именно порт 80
-const PORT = 80
+/* ============ Основные настройки ============ */
+
+// На PaaS (включая Amvera) порт передаётся через env.
+// Локально используем 5174 для удобства dev-сценария.
+const PORT = Number(process.env.PORT) || 5174
+
+// Если стоим за прокси/ингр.stdin — доверяем заголовкам X-Forwarded-*
+app.set('trust proxy', 1)
 
 /* ============ Middleware ============ */
 
@@ -31,22 +37,30 @@ app.use(
   })
 )
 
-// CORS — whitelist через ORIGIN_WHITELIST (через запятую)
 const ORIGIN_WHITELIST = (process.env.ORIGIN_WHITELIST || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean)
 
-app.use(
-  cors(
-    ORIGIN_WHITELIST.length
-      ? {
-          origin: ORIGIN_WHITELIST,
-          credentials: true,
-        }
-      : undefined
-  )
-)
+// Разрешаем preflight и креды для whitelisted источников
+const corsOptions =
+  ORIGIN_WHITELIST.length > 0
+    ? {
+        origin(origin, cb) {
+          // Разрешаем без Origin (health-чеки, curl и т.п.)
+          if (!origin) return cb(null, true)
+          if (ORIGIN_WHITELIST.includes(origin)) return cb(null, true)
+          return cb(new Error(`CORS blocked for origin: ${origin}`))
+        },
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
+        optionsSuccessStatus: 204,
+      }
+    : undefined
+
+app.use(cors(corsOptions))
+app.options('*', cors(corsOptions))
 
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
@@ -63,7 +77,6 @@ app.use('/api/admin', adminRouter)
 app.use('/api/tours', toursRouter)
 
 /* ============ Вспомогательные тест-маршруты ============ */
-
 app.get('/api/ping-telegram', async (_req, res) => {
   try {
     if (!app.locals.notifyAll) {
@@ -87,7 +100,7 @@ app.get('/api/ping-telegram', async (_req, res) => {
   }
 })
 
-// ПИНГ email (опциональный util)
+// ПИНГ email (опционально)
 let sendMailFn = null
 try {
   const mailMod = await import('./utils/mail.js')
@@ -114,7 +127,14 @@ app.use('/api', (_req, res) => {
   res.status(404).json({ ok: false, error: 'API route not found' })
 })
 
-/* ============ НЕ раздаём фронт ============ */
+/* ============ Глобальный обработчик ошибок (JSON) ============ */
+app.use((err, _req, res, _next) => {
+  console.error('API ERROR:', err?.stack || err)
+  const code = err.status || 500
+  res.status(code).json({ ok: false, error: err.message || 'Server error' })
+})
+
+/* ============ Статически фронт НЕ раздаём ============ */
 
 /* ============ Start server ============ */
 const start = async () => {
@@ -127,7 +147,7 @@ const start = async () => {
     }
 
     app.listen(PORT, '0.0.0.0', () =>
-      console.log(`✅ Server started on http://0.0.0.0:${PORT}`)
+      console.log(`✅ Server started on 0.0.0.0:${PORT}`)
     )
   } catch (e) {
     console.error('Failed to start server:', e)
