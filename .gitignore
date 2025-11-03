@@ -1,0 +1,49 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build / cache
+dist/
+build/
+.cache/
+tmp/
+temp/
+
+# Logs
+logs/
+*.log
+*.log.*
+pm2.log
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage / reports
+coverage/
+*.lcov
+.nyc_output/
+
+# Uploads / temp data
+uploads/
+public/uploads/
+storage/

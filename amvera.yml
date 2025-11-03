@@ -1,0 +1,20 @@
+meta:
+  environment: node
+  toolchain:
+    name: npm
+    version: "20"
+
+build:
+  skip: false
+  additionalCommands: |
+    npm ci
+
+run:
+  command: node server.js
+  containerPort: 80
+
+# Можно задать переменные окружения прямо здесь (или через UI Amvera)
+env:
+  NODE_ENV: production
+  # Укажи свой домен фронта через запятую, если нужно
+  ORIGIN_WHITELIST: "https://your-frontend-domain.ru"
